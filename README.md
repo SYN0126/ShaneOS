@@ -13,6 +13,8 @@ limine.conf        告诉 Limine 内核在哪里
 dev.sh             编译 → 链接 → 制作 ISO → 启动 QEMU
 启动 ShaneOS.command 双击启动，无需输入命令
 上传 GitHub.command  双击提交改动并上传 GitHub
+tools/color-picker.html 离线调色盘：颜色、RGB、32 位色值与 C++ 代码
+tools/font-editor.html  离线字模编辑器：n×n 黑白网格，点击或拖动绘制
 vendor/            借用的引导程序、协议头文件和一份 x86-64 固件
 build/             自动生成的文件，可以通过 clean 清除
 ```
@@ -55,6 +57,21 @@ MEMORY=1G ./dev.sh run
 内存复制函数、分配器、C++ 动态初始化等运行时支持均未预先实现；
 需要时再添加，例如链接器提示 `memcpy` 未定义时，再亲手实现该函数。
 读取 Limine 返回的信息前，需要检查协议版本和请求结果。
+
+## 调色盘
+
+双击 `tools/color-picker.html` 即可在浏览器中使用，无需联网或启动 ShaneOS。
+拖动 RGB、选择颜色或输入网页十六进制颜色后，会显示对应的 32 位整数和可复制的 C++ 代码。
+默认排列是 R shift = 16、G shift = 8、B shift = 0；可切换或自定义位移，
+也可输入 8 位十六进制整数反查颜色。请以实际 framebuffer 的格式为准，
+优先复制使用 `framebuffer->*_mask_shift` 的代码，以适应设备的颜色排列。
+
+## 字库测试
+
+字库测试：双击 `tools/font-editor.html`，选择 1～64 的边长并生成 n×n 网格。
+默认黑色，按住左键或用手指拖动涂白；右键或“擦黑”工具可擦除。
+支持清空、撤销、无网格预览和复制 C++ 0/1 矩阵。生成新尺寸也可撤销。
+结果自动保存在当前浏览器中，重新打开可继续编辑。
 
 ## 来源
 

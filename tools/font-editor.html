@@ -1,0 +1,249 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark">
+<title>ShaneOS · 字模编辑器</title>
+<style>
+  :root { color-scheme:dark; --bg:#101216; --panel:#191c22; --line:#30343e; --text:#f0f1f4; --muted:#adb3c2; --accent:#a3e7cb; --mono:ui-monospace,SFMono-Regular,Consolas,monospace; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--text); font:15px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC",sans-serif; }
+  main { max-width:1120px; margin:auto; padding:40px 28px; }
+  .eyebrow { color:var(--accent); font:12px var(--mono); letter-spacing:.13em; }
+  h1 { margin:10px 0 6px; font-size:30px; font-weight:600; letter-spacing:-.04em; }
+  h2 { font-size:15px; font-weight:500; margin:0; }
+  p { margin:0; }
+  .muted,.hint { color:var(--muted); }
+  .hint { font-size:12px; }
+  .layout { display:grid; grid-template-columns:minmax(0,1.45fr) minmax(0,1fr); gap:24px; align-items:start; margin-top:28px; }
+  .panel { background:var(--panel); border:1px solid var(--line); border-radius:16px; padding:22px; min-width:0; }
+  button,input,textarea { font:inherit; }
+  button { background:transparent; color:var(--text); border:1px solid var(--line); border-radius:8px; padding:8px 13px; cursor:pointer; }
+  button:hover { background:#ffffff08; }
+  button[aria-pressed=true],button.primary { background:var(--accent); color:#101216; border-color:var(--accent); }
+  button:disabled { opacity:.35; cursor:not-allowed; }
+  input[type=number] { background:var(--bg); color:var(--text); border:1px solid var(--line); border-radius:8px; padding:8px; width:74px; font-family:var(--mono); }
+  :focus-visible { outline:2px solid var(--accent); outline-offset:3px; }
+  .row { display:flex; align-items:center; flex-wrap:wrap; gap:8px; }
+  .size-row { margin:0 0 15px; }
+  .tools { display:flex; flex-wrap:wrap; justify-content:space-between; gap:12px; padding-top:15px; margin-top:15px; border-top:1px solid var(--line); }
+  .grid-wrap { border:1px solid #414650; border-radius:4px; background:#000; line-height:0; overflow:hidden; }
+  #grid { display:block; width:100%; aspect-ratio:1; touch-action:none; cursor:crosshair; }
+  .grid-info { display:flex; justify-content:space-between; gap:12px; margin-top:10px; font:12px var(--mono); color:var(--muted); }
+  .preview-area { display:flex; justify-content:center; align-items:center; min-height:204px; margin:18px 0 10px; background:#000; border-radius:10px; padding:24px; }
+  #preview { display:block; image-rendering:pixelated; image-rendering:crisp-edges; max-width:100%; }
+  .code-head { display:flex; align-items:center; justify-content:space-between; gap:12px; border-top:1px solid var(--line); padding-top:20px; margin-top:23px; margin-bottom:12px; }
+  .code-head button { padding:5px 10px; font-size:12px; color:var(--accent); }
+  textarea { display:block; width:100%; height:250px; resize:vertical; padding:12px; border:1px solid var(--line); border-radius:9px; color:var(--text); background:var(--bg); font:12px/1.7 var(--mono); white-space:pre; }
+  .error { color:#ffaaaa; font-size:12px; margin-bottom:10px; }
+  .error:empty { display:none; }
+  #status { color:var(--accent); min-height:22px; font-size:12px; margin-top:8px; }
+  footer { margin-top:22px; color:var(--muted); font-size:12px; }
+  @media(max-width:760px) { main { padding:26px 16px; } .layout { grid-template-columns:1fr; gap:18px; } .panel { padding:18px; } }
+  @media(max-width:380px) { main { padding:22px 12px; } .panel { padding:14px; } button { padding:8px 10px; } }
+</style>
+</head>
+<body>
+<main>
+  <header><div class="eyebrow">SHANEOS / DEV TOOLS</div><h1>字模编辑器</h1><p class="muted">在黑色网格上画出白色像素，拼出你的第一个字符。</p></header>
+  <div class="layout">
+    <section class="panel" aria-label="字模绘制区域">
+      <form id="sizeForm" class="row size-row">
+        <label for="size">边长 n</label><input id="size" type="number" min="1" max="64" step="1" value="16" required aria-describedby="sizeHint sizeError"><span>× n</span>
+        <button class="primary" type="submit">生成网格</button>
+      </form>
+      <p id="sizeError" class="error" role="alert"></p>
+      <p id="sizeHint" class="hint" style="margin-bottom:14px">支持 1～64；生成后重建黑色画布，可以撤销。</p>
+      <div class="grid-wrap"><canvas id="grid" width="640" height="640" tabindex="0" aria-label="字模网格。按住鼠标左键绘制，右键擦除。也可用方向键移动，空格绘制，Delete 擦除。">请使用支持 Canvas 的浏览器。</canvas></div>
+      <div class="grid-info"><span id="dimensions">16 × 16</span><span id="position">x — · y —</span><span id="count">0 / 256</span></div>
+      <div class="tools">
+        <div class="row" role="group" aria-label="绘图工具"><button id="pen" type="button" aria-pressed="true">涂白</button><button id="eraser" type="button" aria-pressed="false">擦黑</button></div>
+        <div class="row"><button id="undo" type="button" disabled>撤销</button><button id="clear" type="button">清空</button></div>
+      </div>
+      <p class="hint" style="margin-top:14px">点击或按住左键拖动绘制；按住右键拖动擦除。手机可用手指涂画。</p>
+    </section>
+    <section class="panel" aria-label="字模预览和数据">
+      <h2>无网格预览</h2>
+      <div class="preview-area"><canvas id="preview" width="16" height="16" aria-label="字模放大预览"></canvas></div>
+      <p class="hint" style="text-align:center">每个白色格子就是一个点亮的像素。</p>
+      <div class="code-head"><h2>C++ 像素矩阵</h2><button id="copy" type="button">复制代码</button></div>
+      <textarea id="code" readonly spellcheck="false" aria-label="字模 C++ 数组代码"></textarea>
+      <p class="hint" style="margin-top:10px">1 = 白色，0 = 黑色。第一层是行 y，第二层是列 x，即 glyph[y][x]。</p>
+      <p id="status" role="status" aria-live="polite"></p>
+    </section>
+  </div>
+  <footer id="storageHint">离线使用 · 自动保存在当前浏览器 · 不需要启动 ShaneOS</footer>
+</main>
+<script>
+(() => {
+  'use strict';
+  const $ = id => document.getElementById(id);
+  const canvas = $('grid');
+  const ctx = canvas.getContext('2d');
+  const preview = $('preview');
+  const pctx = preview.getContext('2d');
+  const storageKey = 'shaneos-font-editor-v1';
+  let n = 16, pixels = new Uint8Array(n*n), tool = 1;
+  let stroke = null, cursor = null, keyboardCursor = false;
+  const history = [];
+  const snapshot = () => ({n, pixels:pixels.slice()});
+  const remember = before => { history.push(before); if (history.length > 80) history.shift(); };
+  function save() {
+    try { localStorage.setItem(storageKey, JSON.stringify({n, pixels:Array.from(pixels)})); }
+    catch (_) { $('storageHint').textContent='离线使用 · 当前浏览器无法自动保存，请复制代码保留字模'; }
+  }
+  try {
+    const saved = JSON.parse(localStorage.getItem(storageKey));
+    if (saved && Number.isInteger(saved.n) && saved.n>=1 && saved.n<=64 && Array.isArray(saved.pixels) && saved.pixels.length===saved.n**2 && saved.pixels.every(v=>v===0||v===1)) {
+      n=saved.n; pixels=Uint8Array.from(saved.pixels);
+    }
+  } catch (_) { /* 没有存档时从全黑网格开始。 */ }
+  function draw() {
+    const rect=canvas.getBoundingClientRect();
+    const side=Math.max(1,Math.round(rect.width*(window.devicePixelRatio||1)));
+    if(canvas.width!==side || canvas.height!==side) { canvas.width=side; canvas.height=side; }
+    ctx.fillStyle='#000000'; ctx.fillRect(0,0,side,side);
+    ctx.fillStyle='#FFFFFF';
+    for(let y=0;y<n;y++) for(let x=0;x<n;x++) if(pixels[y*n+x]) {
+      const left=Math.round(x*side/n), top=Math.round(y*side/n);
+      ctx.fillRect(left,top,Math.round((x+1)*side/n)-left,Math.round((y+1)*side/n)-top);
+    }
+    ctx.strokeStyle='#363a43'; ctx.lineWidth=1;
+    ctx.beginPath();
+    for(let i=1;i<n;i++) {
+      const offset=Math.round(i*side/n)+0.5;
+      ctx.moveTo(offset,0); ctx.lineTo(offset,side);
+      ctx.moveTo(0,offset); ctx.lineTo(side,offset);
+    }
+    ctx.stroke();
+    if(keyboardCursor && cursor) {
+      ctx.strokeStyle='#a3e7cb'; ctx.lineWidth=Math.max(2,window.devicePixelRatio||1);
+      ctx.strokeRect(cursor.x*side/n+2,cursor.y*side/n+2,Math.max(0,side/n-4),Math.max(0,side/n-4));
+    }
+  }
+  function render() {
+    draw();
+    if(preview.width!==n) { preview.width=n; preview.height=n; }
+    preview.style.width=Math.max(n,Math.min(256,n*8))+'px';
+    preview.style.height='auto';
+    pctx.fillStyle='#000000'; pctx.fillRect(0,0,n,n);
+    pctx.fillStyle='#FFFFFF';
+    for(let y=0;y<n;y++) for(let x=0;x<n;x++) if(pixels[y*n+x]) pctx.fillRect(x,y,1,1);
+    $('size').value=n;
+    $('dimensions').textContent=`${n} × ${n}`;
+    const count=pixels.reduce((sum,v)=>sum+v,0);
+    $('count').textContent=`${count} / ${n*n}`;
+    preview.setAttribute('aria-label',`${n}乘${n}字模，${count}个白色像素`);
+    const rows=[];
+    for(let y=0;y<n;y++) rows.push('    {'+Array.from(pixels.slice(y*n,(y+1)*n)).join(', ')+'}');
+    $('code').value=`uint8_t glyph[${n}][${n}] = {\n${rows.join(',\n')}\n};`;
+    $('undo').disabled=history.length===0;
+  }
+  function hit(event) {
+    const rect=canvas.getBoundingClientRect();
+    const x=Math.floor((event.clientX-rect.left)*n/rect.width);
+    const y=Math.floor((event.clientY-rect.top)*n/rect.height);
+    return x>=0 && x<n && y>=0 && y<n ? {x,y} : null;
+  }
+  function position(point) {
+    $('position').textContent=point ? `x ${point.x} · y ${point.y}` : 'x — · y —';
+  }
+  function paint(x,y,value) {
+    const index=y*n+x;
+    if(pixels[index]===value) return false;
+    pixels[index]=value; return true;
+  }
+  // 补齐两次鼠标采样之间的格子，快速拖动时也不会漏点。
+  function line(from,to,value) {
+    let x=from.x,y=from.y,changed=false;
+    const dx=Math.abs(to.x-x), sx=x<to.x?1:-1;
+    const dy=-Math.abs(to.y-y), sy=y<to.y?1:-1;
+    let error=dx+dy;
+    for(;;) {
+      changed=paint(x,y,value)||changed;
+      if(x===to.x && y===to.y) break;
+      const twice=2*error;
+      if(twice>=dy) { error+=dy; x+=sx; }
+      if(twice<=dx) { error+=dx; y+=sy; }
+    }
+    return changed;
+  }
+  function endStroke() {
+    if(!stroke) return;
+    const finished=stroke; stroke=null;
+    if(finished.changed) { remember(finished.before); save(); }
+    if(canvas.hasPointerCapture(finished.id)) canvas.releasePointerCapture(finished.id);
+    render();
+  }
+  canvas.addEventListener('pointerdown',event=>{
+    if(stroke || (event.button!==0 && event.button!==2)) return;
+    const point=hit(event); if(!point) return;
+    event.preventDefault(); canvas.focus({preventScroll:true}); keyboardCursor=false; cursor=point;
+    stroke={id:event.pointerId,before:snapshot(),value:event.button===2?0:tool,last:point,changed:false};
+    canvas.setPointerCapture(event.pointerId);
+    stroke.changed=paint(point.x,point.y,stroke.value); position(point); render();
+  });
+  canvas.addEventListener('pointermove',event=>{
+    const point=hit(event); position(point);
+    if(!stroke || stroke.id!==event.pointerId) return;
+    if(!point) { stroke.last=null; return; }
+    cursor=point;
+    const changed=line(stroke.last||point,point,stroke.value); stroke.last=point;
+    if(changed) { stroke.changed=true; render(); }
+  });
+  const finishEvent=event=>{if(stroke && stroke.id===event.pointerId) endStroke();};
+  for(const type of ['pointerup','pointercancel','lostpointercapture']) canvas.addEventListener(type,finishEvent);
+  canvas.addEventListener('pointerleave',()=>{if(!stroke) position(null);});
+  canvas.addEventListener('contextmenu',event=>event.preventDefault());
+  const selectTool=value=>{
+    tool=value; $('pen').setAttribute('aria-pressed',String(value===1)); $('eraser').setAttribute('aria-pressed',String(value===0));
+  };
+  $('pen').addEventListener('click',()=>selectTool(1));
+  $('eraser').addEventListener('click',()=>selectTool(0));
+  $('sizeForm').addEventListener('submit',event=>{
+    event.preventDefault(); const size=$('size').valueAsNumber;
+    if(!Number.isInteger(size)||size<1||size>64) { $('sizeError').textContent='请输入 1～64 的整数。'; return; }
+    $('sizeError').textContent=''; endStroke(); remember(snapshot());
+    n=size; pixels=new Uint8Array(n*n); cursor=null; keyboardCursor=false;
+    $('status').textContent=''; position(null); render(); save();
+  });
+  $('clear').addEventListener('click',()=>{
+    endStroke(); if(!pixels.some(Boolean)) return;
+    remember(snapshot()); pixels.fill(0); $('status').textContent=''; render(); save();
+  });
+  function undo() {
+    endStroke(); const previous=history.pop(); if(!previous) return;
+    n=previous.n; pixels=previous.pixels; cursor=null; keyboardCursor=false;
+    $('status').textContent=''; position(null); render(); save();
+  }
+  $('undo').addEventListener('click',undo);
+  document.addEventListener('keydown',event=>{
+    if((event.ctrlKey||event.metaKey)&&event.key.toLowerCase()==='z'&&!event.shiftKey&&!['INPUT','TEXTAREA'].includes(event.target.tagName)) { event.preventDefault(); undo(); }
+  });
+  canvas.addEventListener('keydown',event=>{
+    if(event.ctrlKey||event.metaKey||event.altKey) return;
+    const arrows={ArrowLeft:[-1,0],ArrowRight:[1,0],ArrowUp:[0,-1],ArrowDown:[0,1]};
+    if(arrows[event.key]) {
+      event.preventDefault(); const point=cursor||{x:0,y:0}, delta=arrows[event.key];
+      cursor={x:Math.max(0,Math.min(n-1,point.x+delta[0])),y:Math.max(0,Math.min(n-1,point.y+delta[1]))};
+      keyboardCursor=true; position(cursor); draw();
+    } else if([' ','Enter','Delete','Backspace'].includes(event.key)) {
+      event.preventDefault(); endStroke(); cursor=cursor||{x:0,y:0}; keyboardCursor=true;
+      const before=snapshot(), value=['Delete','Backspace'].includes(event.key)?0:tool;
+      if(paint(cursor.x,cursor.y,value)) { remember(before); save(); }
+      position(cursor); render();
+    }
+  });
+  $('copy').addEventListener('click',async()=>{
+    let copied=false;
+    try { await navigator.clipboard.writeText($('code').value); copied=true; }
+    catch(_) { $('code').focus(); $('code').select(); try { copied=document.execCommand('copy'); } catch(_) {} }
+    $('status').textContent=copied?'已复制 C++ 字模数组。':'已选中代码，请按 Command+C 或 Ctrl+C 复制。';
+  });
+  new ResizeObserver(draw).observe(canvas);
+  render();
+})();
+</script>
+</body>
+</html>

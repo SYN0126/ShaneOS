@@ -17,6 +17,21 @@ volatile limine_framebuffer_request framebuffer_request{
     .response = nullptr
 };
 
+void xdraw_rect(limine_framebuffer *framebuffer, uint32_t color, uint64_t x, uint64_t y, uint64_t width, uint64_t height) {
+    if(x+width>framebuffer->width|| y+height>framebuffer->height){
+        return;
+    }
+    volatile uint32_t *pixels = static_cast<volatile uint32_t *>(framebuffer->address);
+    uint64_t pixels_per_row = framebuffer->pitch / 4;
+
+    for (uint64_t row = y; row < y + height; row++) {
+        for (uint64_t col = x; col < x + width; col++) {
+            pixels[row * pixels_per_row + col] = color;
+        }
+    }
+
+}
+
 // 内核入口：引导程序加载内核后，从这里开始执行。
 extern "C" [[noreturn]] void kmain() {
     // 从这里开始，逐步写你自己的内核代码。
@@ -51,17 +66,13 @@ volatile uint32_t *pixels =
 uint64_t pixels_per_row = framebuffer->pitch / 4;
 
 // 按屏幕规定的位置，组合红、绿、蓝三个颜色分量。
-uint32_t color =
-    (25u << framebuffer->red_mask_shift) |
-    (55u << framebuffer->green_mask_shift) |
-    (100u << framebuffer->blue_mask_shift);
-
-// 一行一行地给每个像素填色。
+uint32_t color =0x00000000;
 for (uint64_t y = 0; y < framebuffer->height; y++) {
     for (uint64_t x = 0; x < framebuffer->width; x++) {
         pixels[y * pixels_per_row + x] = color;
     }
 }
+xdraw_rect(framebuffer, 0x00FFFFFF, 0, 0, 32, 32);
     // 目前只关闭中断并停住 CPU；内核入口不能像普通函数一样返回。
     for (;;) {
         asm volatile ("cli; hlt");

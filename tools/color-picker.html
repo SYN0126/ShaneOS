@@ -1,0 +1,269 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark">
+<title>ShaneOS · 像素调色盘</title>
+<style>
+  :root { color-scheme: dark; --bg:#101216; --panel:#191c22; --line:#30343e; --text:#f0f1f4; --muted:#adb3c2; --accent:#a3e7cb; --mono:ui-monospace,SFMono-Regular,Consolas,monospace; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--text); font:15px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC",sans-serif; }
+  main { max-width:1120px; margin:auto; padding:44px 28px 36px; }
+  .eyebrow { color:var(--accent); font:12px var(--mono); letter-spacing:.13em; }
+  h1 { margin:10px 0 6px; font-size:32px; font-weight:600; letter-spacing:-.04em; }
+  h2 { font-size:16px; font-weight:500; margin:0 0 18px; }
+  p { margin:0; }
+  .intro,.muted { color:var(--muted); }
+  .layout { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:24px; margin-top:30px; align-items:start; }
+  .panel { background:var(--panel); border:1px solid var(--line); border-radius:18px; padding:24px; min-width:0; }
+  #preview { min-height:210px; border-radius:12px; padding:24px; display:flex; flex-direction:column; justify-content:flex-end; transition:background-color .08s; }
+  #previewHex { font:30px var(--mono); letter-spacing:-.035em; }
+  #previewRgb { margin-top:2px; font:13px var(--mono); }
+  .pick-row { display:flex; align-items:center; justify-content:space-between; gap:16px; margin:22px 0 16px; }
+  label { display:block; }
+  .label { color:var(--muted); font-size:12px; display:block; margin-bottom:6px; }
+  input,select,button { font:inherit; }
+  input[type=text],input[type=number],select { background:var(--bg); color:var(--text); border:1px solid var(--line); border-radius:8px; padding:9px 11px; min-width:0; width:100%; }
+  input[type=text],input[type=number] { font-family:var(--mono); }
+  input[type=color] { background:transparent; border:1px solid var(--line); border-radius:8px; width:60px; height:42px; padding:4px; cursor:pointer; }
+  input[type=range] { width:100%; margin:0; min-width:0; cursor:pointer; }
+  input:focus-visible,button:focus-visible,select:focus-visible,summary:focus-visible { outline:2px solid var(--accent); outline-offset:3px; }
+  input[aria-invalid=true] { border-color:#ff9a9a; }
+  input:disabled { opacity:.55; }
+  .channel { display:grid; grid-template-columns:24px minmax(0,1fr) 76px; gap:12px; align-items:center; margin-top:13px; }
+  .channel label { font-family:var(--mono); }
+  #rRange { accent-color:#f47e87; } #gRange { accent-color:#8ed9ad; } #bRange { accent-color:#89b9ff; }
+  .presets { display:grid; grid-template-columns:repeat(8,minmax(0,1fr)); gap:10px; margin-top:23px; }
+  .swatch { height:34px; border:1px solid #ffffff2b; border-radius:7px; cursor:pointer; }
+  .swatch[aria-pressed=true] { outline:2px solid var(--text); outline-offset:3px; }
+  .web-field { margin-top:22px; }
+  .hero-label { color:var(--muted); font-size:12px; }
+  #pixelHex { font-size:29px; padding:12px 0; width:100%; letter-spacing:-.045em; border:0; border-bottom:1px solid var(--line); border-radius:0; background:transparent; }
+  .small { font-size:12px; color:var(--muted); }
+  .mode { margin-top:24px; }
+  .shifts { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:10px; margin-top:14px; }
+  .shifts label { min-width:0; }
+  .error { font-size:12px; color:#ffaaaa; margin-top:7px; }
+  .error:empty { display:none; }
+  .bytes-heading { display:flex; justify-content:space-between; align-items:baseline; gap:12px; margin:25px 0 10px; font-size:12px; color:var(--muted); }
+  .bytes { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:8px; }
+  .byte { background:var(--bg); border-radius:9px; text-align:center; padding:10px 3px; min-width:0; }
+  .byte-name { color:var(--muted); font-size:11px; overflow-wrap:anywhere; }
+  .byte-hex { display:block; font:24px var(--mono); margin:4px 0; }
+  .byte-bits { font:11px var(--mono); color:var(--muted); }
+  .code-panel { margin-top:24px; }
+  .code-head { display:flex; align-items:center; justify-content:space-between; gap:12px; margin:0 0 8px; }
+  .code-head h2 { margin:0; font-size:13px; color:var(--muted); }
+  button.copy { color:var(--accent); background:transparent; border:1px solid var(--line); border-radius:7px; padding:5px 10px; cursor:pointer; font-size:12px; }
+  button.copy:hover { background:#a3e7cb10; }
+  button:disabled { opacity:.4; cursor:not-allowed; }
+  pre { margin:0; background:var(--bg); padding:14px; border-radius:10px; overflow-wrap:anywhere; white-space:pre-wrap; font:12px/1.8 var(--mono); }
+  #copyStatus { min-height:24px; color:var(--accent); font-size:12px; margin-top:8px; }
+  .explain { margin-top:24px; padding-top:22px; border-top:1px solid var(--line); color:var(--muted); font-size:13px; }
+  .explain strong { color:var(--text); font-weight:500; }
+  .explain code { font-family:var(--mono); color:var(--text); }
+  details { margin-top:16px; }
+  summary { color:var(--text); cursor:pointer; }
+  details p { margin-top:10px; }
+  footer { margin-top:24px; color:var(--muted); font-size:12px; }
+  @media(max-width:760px) { main { padding:28px 18px; } .layout { grid-template-columns:1fr; gap:18px; margin-top:24px; } h1 { font-size:28px; } .panel { padding:20px; } }
+  @media(max-width:380px) { main { padding:22px 12px; } .panel { padding:16px; } #pixelHex { font-size:26px; } .presets { gap:8px; } }
+  @media(prefers-reduced-motion:reduce) { #preview { transition:none; } }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <div class="eyebrow">SHANEOS / DEV TOOLS</div>
+    <h1>像素调色盘</h1>
+    <p class="intro">选一个颜色，看它如何变成写入帧缓冲区的 32 位整数。</p>
+  </header>
+  <div class="layout">
+    <section class="panel" aria-label="选择颜色">
+      <div id="preview" role="img" aria-label="所选颜色">
+        <div id="previewHex">#7D3764</div>
+        <div id="previewRgb">RGB(125, 55, 100)</div>
+      </div>
+      <div class="pick-row">
+        <div><label for="picker">选择颜色</label><p class="small">也可以拖动下面的 RGB 滑块</p></div>
+        <input id="picker" type="color" value="#7d3764" aria-label="打开系统颜色选择器">
+      </div>
+      <div class="channel"><label for="rRange">R</label><input id="rRange" type="range" min="0" max="255" value="125" aria-label="红色强度"><input id="rNumber" type="number" min="0" max="255" step="1" value="125" aria-label="红色数值"></div>
+      <div class="channel"><label for="gRange">G</label><input id="gRange" type="range" min="0" max="255" value="55" aria-label="绿色强度"><input id="gNumber" type="number" min="0" max="255" step="1" value="55" aria-label="绿色数值"></div>
+      <div class="channel"><label for="bRange">B</label><input id="bRange" type="range" min="0" max="255" value="100" aria-label="蓝色强度"><input id="bNumber" type="number" min="0" max="255" step="1" value="100" aria-label="蓝色数值"></div>
+      <p id="rgbError" class="error" role="alert"></p>
+      <div class="web-field"><label class="label" for="webHex">网页颜色 · #RRGGBB</label><input id="webHex" type="text" value="#7D3764" maxlength="7" spellcheck="false" autocapitalize="off" aria-describedby="webError"><p id="webError" class="error" role="alert"></p></div>
+      <div id="presets" class="presets" aria-label="常用颜色"></div>
+      <div class="explain">
+        <strong>先选颜色，再看右边的编码。</strong><br>
+        网页色值固定按 R、G、B 排列；内核里的 color 取决于帧缓冲区返回的 mask_shift。
+      </div>
+    </section>
+    <section class="panel" aria-label="像素编码与 C++ 代码">
+      <label class="hero-label" for="pixelHex">内核 COLOR · 32 位 / 4 字节</label>
+      <input id="pixelHex" type="text" value="0x007D3764" maxlength="10" spellcheck="false" autocapitalize="off" aria-describedby="pixelHint pixelError">
+      <p id="pixelHint" class="small" style="margin-top:8px">可粘贴 8 位十六进制值，反查当前排列下的颜色。</p>
+      <p id="pixelError" class="error" role="alert"></p>
+      <div class="mode"><label class="label" for="mode">像素中 RGB 的位置</label><select id="mode"><option value="rgb">R = 16，G = 8，B = 0</option><option value="bgr">R = 0，G = 8，B = 16</option><option value="high">R = 24，G = 16，B = 8</option><option value="custom">自定义 mask_shift</option></select></div>
+      <div class="shifts">
+        <label><span class="label">R shift</span><input id="rShift" type="number" min="0" max="24" step="1" value="16" disabled></label>
+        <label><span class="label">G shift</span><input id="gShift" type="number" min="0" max="24" step="1" value="8" disabled></label>
+        <label><span class="label">B shift</span><input id="bShift" type="number" min="0" max="24" step="1" value="0" disabled></label>
+      </div>
+      <p id="layoutError" class="error" role="alert"></p>
+      <div class="bytes-heading"><span>数值位序：高位 → 低位</span><span>31 → 0</span></div>
+      <div id="bytes" class="bytes" aria-label="32 位颜色编码的四个字节"></div>
+      <p class="small" style="margin-top:9px">非 RGB 位填 0；不把它们解释为透明度。这不是内存字节顺序图。</p>
+      <div class="code-panel"><div class="code-head"><h2>当前排列下的常量</h2><button type="button" class="copy" data-copy="constantCode">复制</button></div><pre id="constantCode">uint32_t color = 0x007D3764;</pre></div>
+      <div class="code-panel"><div class="code-head"><h2>适应实际 framebuffer 的写法</h2><button type="button" class="copy" data-copy="portableCode">复制</button></div><pre id="portableCode"></pre></div>
+      <p id="copyStatus" role="status" aria-live="polite"></p>
+    </section>
+  </div>
+  <div class="explain">
+    <strong>怎么看 0x00FF0000？</strong>
+    <code>0x</code> 表示十六进制，后面每两位表示一个字节。只有在 R shift = 16、G shift = 8、B shift = 0 时，<code>00 FF 00 00</code> 才表示纯红色。
+    <details><summary>位移与按位或，分别做了什么？</summary><p><code>&lt;&lt;</code> 把一个 0～255 的颜色分量移到对应的 8 位区域；<code>|</code> 把不重叠的三个区域合并为一个整数。例如默认排列下：<code>0x00FF0000 | 0x00000000 | 0x00000000 = 0x00FF0000</code>。三个分量相同但位移不同，最终整数就可能不同。</p></details>
+  </div>
+  <footer>离线使用 · 每个 RGB 通道按 8 位处理 · 请以 framebuffer 实际返回的格式为准</footer>
+</main>
+<script>
+(() => {
+  'use strict';
+  const $ = id => document.getElementById(id);
+  const keys = ['r', 'g', 'b'];
+  const names = {r:'R', g:'G', b:'B'};
+  const state = {r:125, g:55, b:100};
+  const byteHex = n => n.toString(16).padStart(2, '0').toUpperCase();
+  const presets = [
+    ['纯红','#FF0000'], ['橙色','#FF9500'], ['黄色','#FFD60A'], ['绿色','#34C759'],
+    ['青色','#00C7BE'], ['蓝色','#007AFF'], ['紫色','#AF52DE'], ['当前背景色','#7D3764'],
+    ['白色','#FFFFFF'], ['浅灰','#D1D5DB'], ['灰色','#6B7280'], ['黑色','#000000'],
+    ['深蓝','#193764'], ['薄荷','#A3E7CB'], ['粉色','#FF7EB6'], ['米色','#F3DFC1']
+  ];
+  for (const [name, hex] of presets) {
+    const button = document.createElement('button');
+    button.type = 'button'; button.className = 'swatch'; button.style.backgroundColor = hex;
+    button.dataset.hex = hex; button.setAttribute('aria-label', `${name} ${hex}`);
+    button.title = `${name} ${hex}`;
+    button.addEventListener('click', () => { setWebColor(hex); render(); });
+    $('presets').append(button);
+  }
+  const setWebColor = hex => {
+    keys.forEach((key, i) => { state[key] = parseInt(hex.slice(1+i*2, 3+i*2), 16); });
+  };
+  function layout() {
+    const shifts = keys.map(key => $(key+'Shift').valueAsNumber);
+    if (shifts.some(n => !Number.isInteger(n) || n < 0 || n > 24)) {
+      return {error:'每个位移须为 0～24 的整数，确保 8 位通道放得下。'};
+    }
+    if (shifts.some((n, i) => shifts.some((m, j) => i !== j && Math.abs(n-m) < 8))) {
+      return {error:'RGB 各占 8 位，三个区域不能重叠；任意两个位移至少相差 8。'};
+    }
+    const mask = shifts.reduce((n, shift) => n | (255n << BigInt(shift)), 0n);
+    return {shifts, mask};
+  }
+  function render(preserve = '') {
+    const web = '#'+keys.map(key => byteHex(state[key])).join('');
+    $('picker').value = web;
+    if (preserve !== 'web') $('webHex').value = web;
+    keys.forEach(key => { $(key+'Range').value = state[key]; $(key+'Number').value = state[key]; $(key+'Number').removeAttribute('aria-invalid'); });
+    const preview = $('preview');
+    preview.style.backgroundColor = web;
+    const linear = keys.map(key => { const n=state[key]/255; return n<=0.04045 ? n/12.92 : ((n+0.055)/1.055)**2.4; });
+    preview.style.color = 0.2126*linear[0]+0.7152*linear[1]+0.0722*linear[2] > 0.179 ? '#101216' : '#FFFFFF';
+    $('previewHex').textContent = web;
+    $('previewRgb').textContent = `RGB(${state.r}, ${state.g}, ${state.b})`;
+    preview.setAttribute('aria-label', `所选颜色 ${web}，红 ${state.r}，绿 ${state.g}，蓝 ${state.b}`);
+    document.querySelectorAll('.swatch').forEach(button => button.setAttribute('aria-pressed', String(button.dataset.hex === web)));
+    $('webError').textContent = ''; $('webHex').removeAttribute('aria-invalid');
+    $('pixelError').textContent = ''; $('pixelHex').removeAttribute('aria-invalid');
+    $('rgbError').textContent = ''; $('copyStatus').textContent = '';
+    const result = layout();
+    $('layoutError').textContent = result.error || '';
+    $('pixelHex').disabled = !!result.error;
+    document.querySelectorAll('.copy').forEach(button => { button.disabled = !!result.error; });
+    keys.forEach(key => $(key+'Shift').setAttribute('aria-invalid', String(!!result.error)));
+    if (result.error) {
+      $('pixelHex').value = ''; $('bytes').replaceChildren();
+      $('constantCode').textContent = '请先修正位移设置。';
+      $('portableCode').textContent = '请先修正位移设置。';
+      return;
+    }
+    const {shifts} = result;
+    const packed = keys.reduce((n, key, i) => n | (BigInt(state[key]) << BigInt(shifts[i])), 0n);
+    const hex = '0x'+packed.toString(16).padStart(8, '0').toUpperCase();
+    if (preserve !== 'pixel') $('pixelHex').value = hex;
+    $('constantCode').textContent = `uint32_t color = ${hex};`;
+    $('portableCode').textContent = `uint32_t color =\n    (${state.r}u << framebuffer->red_mask_shift) |\n    (${state.g}u << framebuffer->green_mask_shift) |\n    (${state.b}u << framebuffer->blue_mask_shift);`;
+    const bytes = [];
+    for (let index = 3; index >= 0; index--) {
+      const number = Number((packed >> BigInt(index*8)) & 255n);
+      const owners = new Set();
+      for (let bit = index*8; bit < index*8+8; bit++) {
+        const owner = shifts.findIndex(shift => bit >= shift && bit < shift+8);
+        owners.add(owner < 0 ? '非RGB' : names[keys[owner]]);
+      }
+      const box = document.createElement('div'); box.className='byte';
+      const label = document.createElement('div'); label.className='byte-name'; label.textContent=[...owners].join(' / ');
+      const value = document.createElement('span'); value.className='byte-hex'; value.textContent=byteHex(number);
+      const bits = document.createElement('div'); bits.className='byte-bits'; bits.textContent=number.toString(2).padStart(8,'0');
+      box.append(label,value,bits); bytes.push(box);
+    }
+    $('bytes').replaceChildren(...bytes);
+  }
+  for (const key of keys) {
+    $(key+'Range').addEventListener('input', event => { state[key]=Number(event.target.value); render(); });
+    $(key+'Number').addEventListener('input', event => {
+      const n=event.target.valueAsNumber;
+      if (!Number.isInteger(n) || n<0 || n>255) {
+        event.target.setAttribute('aria-invalid','true'); $('rgbError').textContent='RGB 数值须为 0～255 的整数。'; return;
+      }
+      state[key]=n; render();
+    });
+    $(key+'Shift').addEventListener('input', () => render());
+  }
+  $('picker').addEventListener('input', event => { setWebColor(event.target.value); render(); });
+  $('webHex').addEventListener('input', event => {
+    let value=event.target.value.trim();
+    if (!value.startsWith('#')) value='#'+value;
+    if (!/^#[0-9a-f]{6}$/i.test(value)) {
+      event.target.setAttribute('aria-invalid','true'); $('webError').textContent='请输入 6 位十六进制颜色，例如 #FF0000。'; return;
+    }
+    setWebColor(value); render('web');
+  });
+  $('webHex').addEventListener('blur', () => { if ($('webHex').getAttribute('aria-invalid') !== 'true') render(); });
+  $('pixelHex').addEventListener('input', event => {
+    const result=layout(); if (result.error) return;
+    const match=/^(?:0x)?([0-9a-f]{8})$/i.exec(event.target.value.trim());
+    let error='';
+    if (!match) error='请输入 8 位十六进制值，例如 0x00FF0000。';
+    else {
+      const n=BigInt('0x'+match[1]);
+      if ((n & (0xFFFFFFFFn ^ result.mask)) !== 0n) error='该值在非 RGB 区域中含有非零位，本工具不解释这些位；请检查颜色排列或将这些位清零。';
+      else { keys.forEach((key,i) => { state[key]=Number((n >> BigInt(result.shifts[i])) & 255n); }); render('pixel'); }
+    }
+    if (error) { event.target.setAttribute('aria-invalid','true'); $('pixelError').textContent=error; }
+  });
+  $('pixelHex').addEventListener('blur', () => { if ($('pixelHex').getAttribute('aria-invalid') !== 'true') render(); });
+  $('mode').addEventListener('change', event => {
+    const preset={rgb:[16,8,0], bgr:[0,8,16], high:[24,16,8]}[event.target.value];
+    keys.forEach((key,i) => { $(key+'Shift').disabled=!!preset; if (preset) $(key+'Shift').value=preset[i]; });
+    render();
+  });
+  document.querySelectorAll('.copy').forEach(button => button.addEventListener('click', async () => {
+    const text=$(button.dataset.copy).textContent;
+    let copied=false;
+    try { await navigator.clipboard.writeText(text); copied=true; } catch (_) {
+      const area=document.createElement('textarea'); area.value=text;
+      area.style.cssText='position:fixed;top:0;left:0;opacity:0'; document.body.append(area); area.select();
+      try { copied=document.execCommand('copy'); } catch (_) { /* 下方提示手动复制。 */ }
+      area.remove(); button.focus();
+    }
+    $('copyStatus').textContent=copied ? '已复制，可粘贴到 main.cpp。' : '复制未成功，请选中上面的代码手动复制。';
+  }));
+  render();
+})();
+</script>
+</body>
+</html>
